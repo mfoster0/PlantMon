@@ -14,6 +14,18 @@ Files stored in the hidden directory are ignored
 Arduino published messages are sent to the server and topics defined in the ./hidden/hidden_config.h file
 Connection logins are stored in the ./hidden/arduino_secrets.h file
 
+TODO:
+Incorporate the working DHT script
+Incorporate the working soil moisture script
+Use plant ids
+Add error handler
+Warnings / errors
+Add checksum
+Add tamper checks
+Check the remote on/off
+Use LED's for physical monitoring
+Set up remote monitoring
+
 
 */
 
