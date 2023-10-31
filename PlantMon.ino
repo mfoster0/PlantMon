@@ -22,7 +22,10 @@ Add error handler
 Warnings / errors
 Add checksum
 Add tamper checks
-Check the remote on/off
+Check the remote on/off:
+  - via webpage
+  - via mqtt
+  - add on/off for each function
 Use LED's for physical monitoring
 Set up remote monitoring
 
