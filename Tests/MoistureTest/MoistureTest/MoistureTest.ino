@@ -87,18 +87,27 @@ void loop() {
   // handler for receiving requests to webserver
   server.handleClient();
 
+
+//for testing 1 minute is too long, switching to a delay approach
+/*
   if (minuteChanged()) {
     readMoisture();
     sendMQTT();
     Serial.println(GB.dateTime("H:i:s")); // UTC.dateTime("l, d-M-y H:i:s.v T")
   }
+*/
+  
+  readMoisture();
+  sendMQTT();
+  Serial.println(GB.dateTime("H:i:s")); // UTC.dateTime("l, d-M-y H:i:s.v T")
+  delay(10000);
 
   client.loop();
 }
 
 void readMoisture(){
   int soilReading = -1;
-
+  int mappedSoilReading = -1;
   // power the sensor
   digitalWrite(sensorVCC, HIGH);
   digitalWrite(blueLED, LOW);
@@ -109,18 +118,24 @@ void readMoisture(){
   soilReading = analogRead(soilPin);
   Serial.print("Soil: ");
   Serial.println(soilReading);
-  Moisture = mapVal(soilReading, 10,1050, 0, 0);     
+  
+  //map to small range due to such inprecise readings. min value
+  //min observed value: 8, max: 1024 ==> Min: 0, Max:10     
+  //mappedSoilReading = mapVal(soilReading, 0,1025, 0, 10);  
+  Moisture = map(soilReading, 0,1025, 1, 10); 
+  Serial.print("Mapped Soil: ");
+  Serial.println(Moisture);
   //Moisture = analogRead(soilPin);
   //stop power
   digitalWrite(sensorVCC, LOW);  
   digitalWrite(blueLED, HIGH);
   delay(100);
-  Serial.print("Wet ");
+ 
   ////Serial.println(soilReading);   // read the value from the nails
 
 }
 
-long mapVal(long x, long in_min, long in_max, long out_min, long out_max) {
+int mapVal(int x, int in_min, int in_max, int out_min, int out_max) {
   Serial.println("valVal in: ");
   Serial.println(x);
   return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
@@ -180,6 +195,8 @@ void sendMQTT() {
   client.publish("student/CASA0014/plant/ucfnamm/humidity", msg);
 
   //Moisture = analogRead(soilPin);   // moisture read by readMoisture function
+  Serial.print("Publishing moisture val: ");
+  Serial.println(Moisture);
   snprintf (msg, 50, "%.0i", Moisture);
   Serial.print("Publish message for m: ");
   Serial.println(msg);
