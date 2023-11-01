@@ -39,6 +39,16 @@ Webpage:
   Clean up room and device ids
   Possibly make realtime
 
+Bespoke monitor for control and alerts??
 
+Hardware:
+  Switch DHT from fixed to removable
+  Test different nails
+  Test built-in LED's for visibility
+    - add external if required
+  Add buzzer and set up non-irritating sound prompts
+  Switch power from 5v rechargable to JST 3.7 and attach
+  Switch to smaller enclosure
 
-
+![Diagram of high level data flows and controls](./img/PMDataFlows.jpg)
+<img src="./img/PMDataFlows.jpg" alt="Diagram of high level data flows and controls" title="System Data Flows">
