@@ -10,28 +10,33 @@ Readings are posted to an MQTT server for remote monitoring
 For local/physical monitoring light and sound are used so that in the event of a connection issue with the server the monitor can still function
 and health can be highlighted locally.
 
-Files stored in the hidden directory are ignored
-Arduino published messages are sent to the server and topics defined in the ./hidden/hidden_config.h file
+Arduino published messages are sent to the mqtt server and topics defined in the ./hidden/hidden_config.h file
 Connection logins are stored in the ./hidden/arduino_secrets.h file
+Remote control of the device is performed through mqtt and the webpage
 
 TODO:
-Incorporate the working DHT script
-Incorporate the working soil moisture script
-Use plant ids
+
+Debug soil sensor readings - the soil moisture script is working
 Add error handlers
-Warnings / errors
-Add checksum
-Add tamper checks
-Check the remote on/off:
+Warnings / errors - publish to mqtt
+Add checksum - use simple cipher so that consumers of data know this is genuine
+Add tamper checks - look at ways to analyse readings to identify potential tamper events
+Enable the remote control for switching device on/off:
   - via webpage
   - via mqtt
   - add on/off for each function
-Use LED's for physical monitoring
+Use LED's for physical monitoring and heartbeat
 Add sound alert to support non-visual alert
-Set up remote monitoring
+Set up active remote monitoring
 Automatically attempt to connect to back up WiFi connection if primary fails
 Move from delay to millis
 Update pulse logic to show a less frequent heartbeat
+
+Webpage:
+  Add colour highlighting for values out of accepted ranges
+  Add start/stop functionality (possibly dropdown or radio buttons)
+  Clean up room and device ids
+  Possibly make realtime
 */
 
 #include <ESP8266WiFi.h>
@@ -91,11 +96,7 @@ bool ledOn = false;
 
 int elapsedIntervals = 0;
 
-
-
-//const char* statusTopic = topicBase + plantId;
-
-//#################################
+//#####################################################################
 //Making code more config driven so changes only need to be made to the associated config file and not the main code
 String plantTopic = String(topicBase) + roomId + plantId;
 
@@ -154,7 +155,9 @@ void setup() {
   syncDate();
 
 }
-
+//#####################################################################
+// continuous execution loop for device
+//#####################################################################
 void loop() {
   // handler for receiving requests to webserver
   server.handleClient();
@@ -171,16 +174,17 @@ void loop() {
   delay(interval);
 }
 
+//#####################################################################
+// check if if it is time to send data to mqtt, if so process current readings
+// so that the device is not in a "delay" state for too long, a counter is used to allow loop cycles continue
+// consider switching to millis as a method of waiting
+//#####################################################################
 void processDueActions() {
-  //##########################################################
-  //so that the device is not in a "delay" state for too long, a counted is used to allow loop cycles
+ 
   //process actions if defined intervals have passed
   if (elapsedIntervals >= pubIntervals  ){
     //use UTC until read up on any issues with GB
     Serial.println(UTC.dateTime("l, d-M-y H:i:s.v T")); // GB.dateTime("H:i:s")
-    
-    //get soil reading
-    readMoisture();
 
     sendMQTT();
     elapsedIntervals = 0;
@@ -198,6 +202,9 @@ void processDueActions() {
   }  
 }
 
+//#######################################################
+// read data from nail sensors
+//#######################################################
 void readMoisture(){
   int soilReading = -1;
   int mappedSoilReading = -1;
@@ -228,6 +235,9 @@ void readMoisture(){
 
 }
 
+//#######################################################
+// start webserver used for processing http requests received
+//#######################################################
 void startWebserver() {
   // when connected and IP address obtained start HTTP server
   server.on("/", handle_OnConnect);
@@ -236,8 +246,10 @@ void startWebserver() {
   Serial.println("HTTP server started");
 }
 
+//#######################################################
+// establish current date and time from ezTime
 void syncDate() {
-  // get real date and time
+  // get real date and time from ezTime
   waitForSync();
   Serial.println("UTC: " + UTC.dateTime());
   //GB.setLocation("Europe/London");
@@ -250,14 +262,25 @@ void sendMQTT(){
     reconnect();
   }
   
-  //####################
+  //#######################################################
   //keep connection to mqtt alive
   client.loop();
   ++value;
 
+  //#######################################################
+  //reading moisture first because this reading takes longer
+  //get soil reading
+  readMoisture();
 
-  
-  //#################################################
+  //#######################################################
+  // publish current readings through mqtt pubsub client
+  Serial.print("Publishing moisture val: ");
+  Serial.println(Moisture);
+  snprintf (msg, 50, "%.0i", Moisture);
+  Serial.print("Publish message for m: ");
+  Serial.println(msg);
+  client.publish((plantTopic + "moisture").c_str(), msg);
+
   Temperature = dht.readTemperature(); // Gets the values of the temperature
   snprintf (msg, 50, "%.1f", Temperature);
   Serial.print("Publish message for t: ");
@@ -270,30 +293,29 @@ void sendMQTT(){
   Serial.println(msg);
   client.publish((plantTopic + "humidity").c_str(), msg);
 
-  //Moisture = analogRead(soilPin);   // moisture read by readMoisture function
-  Serial.print("Publishing moisture val: ");
-  Serial.println(Moisture);
-  snprintf (msg, 50, "%.0i", Moisture);
-  Serial.print("Publish message for m: ");
+  //Publish device time at send. opting for iso8601 as the format is clear
+  String sendTime = UTC.dateTime(ISO8601);
+  Serial.print("Publish message for time: ");
+  Serial.println(sendTime);
+  client.publish((plantTopic + "time").c_str(), sendTime.c_str());
+
+  //Publish check value (cipher) for identify values not from this device
+  String codedText = codeString(sendTime);
+  Serial.print("Publish message for check: ");
   Serial.println(msg);
-  client.publish((plantTopic + "moisture").c_str(), msg);
+  client.publish((plantTopic + "check").c_str(), codedText.c_str());
 }
 
-/*
-void publishToRC(){
-  snprintf (msg, 50, "#%ld", value);
-  Serial.print("Publish message: ");
-  Serial.println(msg);
-  Serial.println(plantTopic.c_str());
-  
-  //###############################
-  //publish to mqtt
-  //client.publish(statusTopic.c_str(),msg);
-  //client.publish(plantTopic.c_str(),msg);
-  client.publish((plantTopic + remoteControl).c_str(),msg);
+//########################################################
+// placeholder for simple cipher function for checksum
+//########################################################
+String codeString(String str){
+  return "foo";
 }
-*/
 
+//#####################################################################
+// establish mqtt connection and subscribe for topics as required
+//#####################################################################
 void reconnect(){
   //loop til reconnected
   while (!client.connected()){
@@ -325,6 +347,7 @@ void reconnect(){
 // this callback is being used to track topic updates arriving through 
 // mqtt whilst in development
 //for prod use, this should be removed if not used
+//#####################################################################
 void callback(char* topic, byte* payload, unsigned int length){
   Serial.print("Message received [");
   Serial.print(topic);
@@ -360,22 +383,34 @@ void callback(char* topic, byte* payload, unsigned int length){
   
 }
 
+//########################################################
+// request from a web client recieved
+// grab current values and publish via SendHTML function
+// intentionally not refreshing here to keep values in sync with last MQTT publish
+// revisit logic if there extended intervals between reads
+//########################################################
 void handle_OnConnect() {
   Serial.println("handle_OnConnect: processing");
-  Temperature = dht.readTemperature(); // Gets the values of the temperature
-  Humidity = dht.readHumidity(); // Gets the values of the humidity
+  //Temperature = dht.readTemperature(); // Gets the values of the temperature
+  //Humidity = dht.readHumidity(); // Gets the values of the humidity
   server.send(200, "text/html", SendHTML(Temperature, Humidity, Moisture));
 }
 
+//########################################################
+// generate 404 error response for a request for no matching function
+//########################################################
 void handle_NotFound() {
   Serial.println("Handle not found");
   server.send(404, "text/plain", "Not found");
 }
-
+//####################################################################
+// Added basic accessibility info
+// Added simple formatting and device info
+// Added placeholder buttons for starting and stopping device
 String SendHTML(float Temperaturestat, float Humiditystat, int Moisturestat) {
-  String ptr = "<!DOCTYPE html> <html>\n";
+  String ptr = "<!DOCTYPE html lang=""en""> <html>\n";
   ptr += "<head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0, user-scalable=no\">\n";
-  ptr += "<title>ESP8266 DHT22 Report</title>\n";
+  ptr += "<title>ESP8266 DHT22/Soil Moisture Report and Controls</title>\n";
   ptr += "<style>html { font-family: Helvetica; display: inline-block; margin: 0px auto; text-align: center;}\n";
   ptr += "body{margin-top: 50px;} h1 {color: #444444;margin: 50px auto 30px;}\n";
   ptr += "p {font-size: 24px;color: #444444;margin-bottom: 10px;}\n";
@@ -384,7 +419,11 @@ String SendHTML(float Temperaturestat, float Humiditystat, int Moisturestat) {
   ptr += "<body>\n";
   ptr += "<div id=\"webpage\">\n";
   ptr += "<h1>ESP8266 Huzzah DHT22 Report</h1>\n";
-
+  ptr += "<p>Device ID: ";
+  ptr += plantId;
+  ptr += "<p>Room ID: ";
+  ptr += roomId;
+  ptr += "<hr>";
   ptr += "<p>Temperature: ";
   ptr += (int)Temperaturestat;
   ptr += " C</p>";
@@ -399,9 +438,30 @@ String SendHTML(float Temperaturestat, float Humiditystat, int Moisturestat) {
   ptr += "<br>";
   ptr += UTC.dateTime("d-M-y H:i:s T"); //GB.dateTime("d-M-y H:i:s T");
   ptr += "</p>";
-
+  ptr += "<hr>";
+  ptr += "<br>";
+  ptr += "<p>Control Device On/Off:";
+  ptr += "<br>";
+  ptr += "<button type=""button"" style=""margin:10px;"" disabled>Start</button>";
+  ptr += "<button type=""button"" style=""margin:10px;"" disabled>Stop</button>";
+  ptr += "</p>";
   ptr += "</div>\n";
   ptr += "</body>\n";
   ptr += "</html>\n";
   return ptr;
 }
+
+/*
+void publishToRC(){
+  snprintf (msg, 50, "#%ld", value);
+  Serial.print("Publish message: ");
+  Serial.println(msg);
+  Serial.println(plantTopic.c_str());
+  
+  //###############################
+  //publish to mqtt
+  //client.publish(statusTopic.c_str(),msg);
+  //client.publish(plantTopic.c_str(),msg);
+  client.publish((plantTopic + remoteControl).c_str(),msg);
+}
+*/
