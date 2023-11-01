@@ -16,39 +16,38 @@ The code is structure to perform x core tasks split between 3 main areas:
 ### On Callback Event
 
 TODO:
-
-Debug soil sensor readings - the soil moisture script is working
-Add error handlers
-Warnings / errors - publish to mqtt
-Add checksum - use simple cipher so that consumers of data know this is genuine
-Add tamper checks - look at ways to analyse readings to identify potential tamper events
-Enable the remote control for switching device on/off:
-  - via webpage
-  - via mqtt
-  - add on/off for each function
-Use LED's for physical monitoring and heartbeat
-Add sound alert to support non-visual alert
-Set up active remote monitoring
-Automatically attempt to connect to back up WiFi connection if primary fails
-Move from delay to millis
-Update pulse logic to show a less frequent heartbeat
+- Debug soil sensor readings - the soil moisture script is working
+- Add error handlers
+- Warnings / errors - publish to mqtt
+- Add checksum - use simple cipher so that consumers of data know this is genuine
+- Add tamper checks - look at ways to analyse readings to identify potential tamper events
+- Enable the remote control for switching device on/off:
+  -- via webpage
+  -- via mqtt
+  -- add on/off for each function
+- Use LED's for physical monitoring and heartbeat
+- Add sound alert to support non-visual alert
+- Set up active remote monitoring
+- Automatically attempt to connect to back up WiFi connection if primary fails
+- Move from delay to millis
+- Update pulse logic to show a less frequent heartbeat
 
 Webpage:
-  Add colour highlighting for values out of accepted ranges
-  Add start/stop functionality (possibly dropdown or radio buttons)
-  Clean up room and device ids
-  Possibly make realtime
+-   Add colour highlighting for values out of accepted ranges
+-   Add start/stop functionality (possibly dropdown or radio buttons)
+-   Clean up room and device ids
+-   Possibly make realtime
 
 Bespoke monitor for control and alerts??
 
 Hardware:
-  Switch DHT from fixed to removable
-  Test different nails
-  Test built-in LED's for visibility
-    - add external if required
-  Add buzzer and set up non-irritating sound prompts
-  Switch power from 5v rechargable to JST 3.7 and attach
-  Switch to smaller enclosure
+- Switch DHT from fixed to removable
+- Test different nails
+- Test built-in LED's for visibility
+  -- add external if required
+- Add buzzer and set up non-irritating sound prompts
+- Switch power from 5v rechargable to JST 3.7 and attach
+- Switch to smaller enclosure
 
 ## Overview of flow and controls
 <img src="./img/PMDataFlows.jpg" alt="Diagram of high level data flows and controls" title="System Data Flows">
