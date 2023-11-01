@@ -50,5 +50,8 @@ Hardware:
   Switch power from 5v rechargable to JST 3.7 and attach
   Switch to smaller enclosure
 
-![Diagram of high level data flows and controls](./img/PMDataFlows.jpg)
+## Overview of flow and controls
 <img src="./img/PMDataFlows.jpg" alt="Diagram of high level data flows and controls" title="System Data Flows">
+
+## Draft monitoring components and enclosure boundary
+<img src="./img/PMComponents.jpg" alt="Sketch of components and enclosure boundary" title="Device Components">
