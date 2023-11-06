@@ -16,6 +16,21 @@ Remote control of the device is performed through mqtt and the webpage
 
 TODO:
 
+Debug soil sensor readings - the soil moisture script is working
+Add error handlers
+Warnings / errors - publish to mqtt
+Add checksum - use simple cipher so that consumers of data know this is genuine
+Add tamper checks - look at ways to analyse readings to identify potential tamper events
+Enable the remote control for switching device on/off:
+  - via webpage
+  - via mqtt
+  - add on/off for each function
+Use LED's for physical monitoring and heartbeat
+Add sound alert to support non-visual alert
+Set up active remote monitoring
+Automatically attempt to connect to back up WiFi connection if primary fails
+Move from delay to millis
+Update pulse logic to show a less frequent heartbeat
 - Debug soil sensor readings - the soil moisture script is working
 - Add error handlers
 - Warnings / errors - publish to mqtt
@@ -33,6 +48,10 @@ TODO:
 - Update pulse logic to show a less frequent heartbeat
 
 Webpage:
+  Add colour highlighting for values out of accepted ranges
+  Add start/stop functionality (possibly dropdown or radio buttons)
+  Clean up room and device ids
+  Possibly make realtime
 -   Add colour highlighting for values out of accepted ranges
 -   Add start/stop functionality (possibly dropdown or radio buttons)
 -   Clean up room and device ids
@@ -133,17 +152,7 @@ void setup() {
   //set up callback function to be trigger on mqtt update for a subcribed topic
   client.setCallback(callback);
 
-  //connect to wifi
-  Serial.println();
-  Serial.println("Connecting to ");
-  Serial.print(ssid);
-  WiFi.begin(ssid, password);
-  
-  //wait for wifi connection
-  while (WiFi.status() != WL_CONNECTED){
-    delay(500);
-    Serial.print(".");
-  }
+  connectToWiFi();
 
   //print IP of device
   Serial.println("");
@@ -155,6 +164,48 @@ void setup() {
   syncDate();
 
 }
+void connectToWiFi(){
+  bool usingBU = false;
+  char* usingSSID = ssid;
+  char* usingPwd = password
+
+  //connect to wifi
+  Serial.println();
+  Serial.println("Connecting to ");
+  Serial.print(usingSSID);
+  
+  WiFi.begin(usingSSID, usingPwd);
+  
+  int count = 0;
+  //wait for wifi connection - use back up if primary not available
+  while (WiFi.status() != WL_CONNECTED){
+    Serial.print(".");
+    delay(500);
+    if (count > 30){
+      usingBU != usingBU;
+      
+      //get the correct ssid and pwd
+      if (usingBU){
+        usingSSID = ssid_bu;
+        usingPwd = password_bu;  
+      } else {
+        usingSSID = ssid;
+        usingPwd = password;     
+      }
+
+      //connect to wifi
+      Serial.println();
+      Serial.println("Connecting to ");
+      Serial.print(usingSSID);
+      WiFi.begin(usingSSID, usingPwd);   
+      
+      count = 0;
+    }
+  
+    count++;
+  }
+}
+
 //#####################################################################
 // continuous execution loop for device
 //#####################################################################
@@ -181,25 +232,38 @@ void loop() {
 //#####################################################################
 void processDueActions() {
  
-  //process actions if defined intervals have passed
-  if (elapsedIntervals >= pubIntervals  ){
-    //use UTC until read up on any issues with GB
-    Serial.println(UTC.dateTime("l, d-M-y H:i:s.v T")); // GB.dateTime("H:i:s")
+  //exit if interval count threshold has not been reached
+  if (elapsedIntervals < pubIntervals  ){
+    return;
+  }
 
-    sendMQTT();
-    elapsedIntervals = 0;
+  //process actions 
+  //use UTC until read up on any issues with GB
+  Serial.println(UTC.dateTime("l, d-M-y H:i:s.v T")); // GB.dateTime("H:i:s")
+
+  //#######################################################
+  //reading moisture first because this reading takes longer
+  //get soil reading
+  readMoisture();
+
+  Temperature = dht.readTemperature(); // Gets the values of the temperature
+  Humidity = dht.readHumidity(); // Gets the values of the humidity
   
-    //#################################################################
-    //Pulse to be used in finished version to show that the device is still active
-    //show pulse
-    if (ledOn){
+  //send readings to broker
+  sendMQTT();
+
+  //reset the interval count
+  elapsedIntervals = 0;
+  
+  //#################################################################
+  //Pulse to be used in finished version to show that the device is still active
+  //show pulse
+  if (ledOn){
       digitalWrite(LED_BUILTIN, HIGH); //off
     } else {
       digitalWrite(LED_BUILTIN, LOW); //on
     }
-    ledOn = !ledOn;
-  
-  }  
+    ledOn = !ledOn;  
 }
 
 //#######################################################
@@ -211,14 +275,13 @@ void readMoisture(){
   // power the sensor
   digitalWrite(sensorVCC, HIGH);
   digitalWrite(blueLED, LOW);
-  delay(250);
-  // read the value from the sensor:         
-  // Mapped the range of the min and max values taken to 0-10. 
-  //This intentionally removes much of the granularity of the reading due to this sensor have multiple factors that can influence its performance  
-  soilReading = analogRead(soilPin);
+  delay(100);
+  // read the value from the sensor:          
+  Moisture = analogRead(soilPin);
+
   Serial.print("Soil: ");
-  Serial.println(soilReading);
-  
+  Serial.println(Moisture);
+  /*
   //map to small range due to such inprecise readings. min value
   //min observed value: 8, max: 1024 ==> Min: 0, Max:10      
   Moisture = map(soilReading, minMoist, maxMoist, minMoistRng, maxMoistRng); 
@@ -226,6 +289,7 @@ void readMoisture(){
   Serial.print("Mapped Soil: ");
   Serial.println(Moisture);
   //Moisture = analogRead(soilPin);
+  */
   //stop power
   digitalWrite(sensorVCC, LOW);  
   digitalWrite(blueLED, HIGH);
@@ -267,27 +331,24 @@ void sendMQTT(){
   client.loop();
   ++value;
 
-  //#######################################################
-  //reading moisture first because this reading takes longer
-  //get soil reading
-  readMoisture();
+
 
   //#######################################################
   // publish current readings through mqtt pubsub client
-  Serial.print("Publishing moisture val: ");
-  Serial.println(Moisture);
+  //Serial.print("Publishing moisture val: ");
+  //Serial.println(Moisture);
   snprintf (msg, 50, "%.0i", Moisture);
   Serial.print("Publish message for m: ");
   Serial.println(msg);
   client.publish((plantTopic + "moisture").c_str(), msg);
 
-  Temperature = dht.readTemperature(); // Gets the values of the temperature
+  //Temperature
   snprintf (msg, 50, "%.1f", Temperature);
   Serial.print("Publish message for t: ");
   Serial.println(msg);
   client.publish((plantTopic + "temperature").c_str(), msg);
 
-  Humidity = dht.readHumidity(); // Gets the values of the humidity
+  //Humidity
   snprintf (msg, 50, "%.0f", Humidity);
   Serial.print("Publish message for h: ");
   Serial.println(msg);

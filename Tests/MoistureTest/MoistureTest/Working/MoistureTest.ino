@@ -20,36 +20,23 @@ DHT dht(DHTPin, DHTTYPE);   // Initialize DHT sensor.
 // Wifi and MQTT
 #include "arduino_secrets.h" 
 #include "hidden_config.h" 
+/*
+**** please enter your sensitive data in the Secret tab/arduino_secrets.h
+**** using format below
 
-const char* ssid = SECRET_SSID;
+#define SECRET_SSID "ssid name"
+#define SECRET_PASS "ssid password"
+#define SECRET_MQTTUSER "user name - eg student"
+#define SECRET_MQTTPASS "password";
+ */
+
+const char* ssid     = SECRET_SSID;
 const char* password = SECRET_PASS;
-const char* ssid_bu = SECRET_SSID_BU;
-const char* password_bu = SECRET_PASS_BU;
 const char* mqttuser = SECRET_MQTTUSER;
 const char* mqttpass = SECRET_MQTTPASS;
-const char* cypher = SECRET_CYPHER;
 
-//MQTT Topic Config 
-const char* topicBase = TOPIC_BASE; //this is the main/higher part of topics that will be  the same for all subscriptions
-const char* roomId = ROOM_ID; //CE Lab
-const char* plantId = PLANT_ID; //ID of individual plant
-const char* healthTopic = HEALTH_TOPIC_ID;
-const char* healthTimeTopic = HEALTH_TIME_TOPIC_ID;
-//Making code more config driven so changes only need to be made to the associated config file and not the main code
-String plantTopic = String(topicBase) + roomId + plantId;
-
-int min_moist = MIN_MOIST;
-int max_moist = MAX_MOIST;
-
-int danger_moist_low = DANGER_MOIST_LOW;
-int danger_moist_high = DANGER_MOIST_HIGH;
-
-float danger_temp_low = DANGER_TEMP_LOW;
-float danger_temp_high = DANGER_TEMP_HIGH;
-
-float danger_humidity_low =  DANGER_HUMIDITY_LOW;
-float danger_humidity_high =  DANGER_HUMIDITY_HIGH;
-
+int minMoist = MIN_MOIST;
+int maxMoist = MAX_MOIST;
 
 ESP8266WebServer server(80);
 const char* mqtt_server = MQTT_SERVER;
@@ -63,7 +50,7 @@ int value = 0;
 Timezone GB;
 
 void setup() {
-
+  // put your setup code here, to run once:
   // Set up LED to be controllable via broker
   // Initialize the BUILTIN_LED pin as an output
   // Turn the LED off by making the voltage HIGH
@@ -81,15 +68,12 @@ void setup() {
   Serial.begin(115200);
   delay(100);
 
-  //print the script being executed
-  Serial.println("Running script: MoistureTest");
-
   // start DHT sensor
   pinMode(DHTPin, INPUT);
   dht.begin();
 
   // run initialisation functions
-  connectToWiFi();
+  startWifi();
   startWebserver();
   syncDate();
 
@@ -112,67 +96,14 @@ void loop() {
     Serial.println(GB.dateTime("H:i:s")); // UTC.dateTime("l, d-M-y H:i:s.v T")
   }
 */
-  //get current readings
-  updateReadings();
-
+  
+  readMoisture();
   sendMQTT();
   Serial.println(GB.dateTime("H:i:s")); // UTC.dateTime("l, d-M-y H:i:s.v T")
   delay(10000);
 
   client.loop();
 }
-
-void updateReadings(){
-  //get soil moisture first as this takes the longest time to perform
-  readMoisture();
-  Temperature = dht.readTemperature(); // Gets the values of the temperature
-  Humidity = dht.readHumidity(); // Gets the values of the humidity
-
-  //check all values are in acceptable ranges
-  String warning = checkValuesAreGood();
-  
-  if (warning.length() > 0 ) {
-    client.publish((plantTopic + healthTopic).c_str(), warning.c_str());
-    client.publish((plantTopic + healthTimeTopic).c_str(), UTC.dateTime("ymd His.v").c_str());
-  }
-
-}
-
-String checkValuesAreGood(){
-  String result = "";
-  if (Moisture < danger_moist_low ) {
-    result += "Moist Low (";
-    result += Moisture;
-    result += ") ";
-  } 
-  if (Moisture > danger_moist_high ) {
-    result += "Moist High (";
-    result += Moisture;
-    result += ") ";
-  }
-  if (Temperature < danger_temp_low ) {
-    result += "Temp Low (";
-    result += Temperature;
-    result += ") ";
-  } 
-  if (Temperature > danger_temp_high ) {
-    result += "Temp High (";
-    result += Temperature;
-    result += ") ";
-  }
-  if (Humidity < danger_humidity_low ) {
-    result += "Humidity Low (";
-    result += Humidity;
-    result += ") ";
-  } 
-  if (Humidity > danger_humidity_high ) {
-    result += "Humidity High (";
-    result += Humidity;
-    result += ") ";
-  }
-  return result;
-}
-
 
 void readMoisture(){
   int soilReading = -1;
@@ -209,11 +140,11 @@ void readMoisture(){
 }
 
 int mapVal(int x, int in_min, int in_max, int out_min, int out_max) {
-  Serial.println("mapVal in: ");
+  Serial.println("valVal in: ");
   Serial.println(x);
   return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
 }
-/*
+
 void startWifi() {
   // We start by connecting to a WiFi network
   Serial.println();
@@ -230,49 +161,6 @@ void startWifi() {
   Serial.println("WiFi connected");
   Serial.print("IP address: ");
   Serial.println(WiFi.localIP());
-}
-*/
-
-void connectToWiFi(){
-  bool usingBU = false;
-  const char* usingSSID = ssid;
-  const char* usingPwd = password;
-
-  //connect to wifi
-  Serial.println();
-  Serial.println("Connecting to ");
-  Serial.print(usingSSID);
-  
-  WiFi.begin(usingSSID, usingPwd);
-  
-  int count = 0;
-  //wait for wifi connection - use back up if primary not available
-  while (WiFi.status() != WL_CONNECTED){
-    Serial.print(".");
-    delay(500);
-    if (count > 30){
-      usingBU != usingBU;
-      
-      //get the correct ssid and pwd
-      if (usingBU){
-        usingSSID = ssid_bu;
-        usingPwd = password_bu;  
-      } else {
-        usingSSID = ssid;
-        usingPwd = password;     
-      }
-
-      //connect to wifi
-      Serial.println();
-      Serial.println("Connecting to ");
-      Serial.print(usingSSID);
-      WiFi.begin(usingSSID, usingPwd);   
-      
-      count = 0;
-    }
-  
-    count++;
-  }
 }
 
 void syncDate() {
@@ -298,48 +186,27 @@ void sendMQTT() {
   }
   client.loop();
 
- 
+  Temperature = dht.readTemperature(); // Gets the values of the temperature
   snprintf (msg, 50, "%.1f", Temperature);
-  Serial.print("Publish message for temperature: ");
+  Serial.print("Publish message for t: ");
   Serial.println(msg);
-  //client.publish("student/CASA0014/plant/ucfnamm/temperature", msg);
-  client.publish((plantTopic + "temperature").c_str(), msg);
+  client.publish("student/CASA0014/plant/ucfnamm/temperature", msg);
 
-
+  Humidity = dht.readHumidity(); // Gets the values of the humidity
   snprintf (msg, 50, "%.0f", Humidity);
-  Serial.print("Publish message for humidity: ");
+  Serial.print("Publish message for h: ");
   Serial.println(msg);
-  //client.publish("student/CASA0014/plant/ucfnamm/humidity", msg);
-  client.publish((plantTopic + "humidity").c_str(), msg);
+  client.publish("student/CASA0014/plant/ucfnamm/humidity", msg);
 
   //Moisture = analogRead(soilPin);   // moisture read by readMoisture function
+  Serial.print("Publishing moisture val: ");
+  Serial.println(Moisture);
   snprintf (msg, 50, "%.0i", Moisture);
-  Serial.print("Publish message for moisture: ");
+  Serial.print("Publish message for m: ");
   Serial.println(msg);
-  //client.publish("student/CASA0014/plant/ucfnamm/moisture", msg);
-  client.publish((plantTopic + "moisture").c_str(), msg);
+  client.publish("student/CASA0014/plant/ucfnamm/moisture", msg);
 
-  String sendTime = UTC.dateTime("ymd His.v");
-  client.publish((plantTopic + "time").c_str(), sendTime.c_str());
-  client.publish((plantTopic + "check").c_str(), codeString(sendTime).c_str());
-
-  Serial.println(sendTime);
 }
-#######################################################################################################
-##
-## CHANGE CIPHER LOGIC TO ADD ALL READINGS AND TIME AND CREATE THE CHECK CHAR
-#######################################################################################################
-//########################################################
-// simple cipher function for checksum
-//########################################################
-String codeString(String str){
-  //String last2Chars = str.substring(str.length() - 2);
-  //str.substring(str.length() - 2) gets the last 2 chars of millisecs
-  // the ".toInt()" casts them to int
-  // this 0-99 values is used to grab the chardacter at that position in the cypher
-  return String(cypher[str.substring(str.length() - 2).toInt()]);
-}
-
 
 void callback(char* topic, byte* payload, unsigned int length) {
   Serial.print("Message arrived [");
