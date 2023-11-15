@@ -69,6 +69,8 @@ Webpage:
 // Sensors - DHT22 and Nails
 uint8_t DHTPin = 12;        // on Pin 2 of the Huzzah
 uint8_t soilPin = 0;      // ADC or A0 pin on Huzzah
+const int buzzer = 14; //buzzer pin
+
 float Temperature;
 float Humidity;
 long Moisture = 1; // initial value just in case web page is loaded before readMoisture called
@@ -135,13 +137,16 @@ void setup() {
   digitalWrite(sensorVCC, LOW);
   pinMode(blueLED, OUTPUT); 
   digitalWrite(blueLED, HIGH);
+  delay(1000);
+  digitalWrite(blueLED, LOW);
+  pinMode(buzzer, OUTPUT); // Set buzzer - pin 9 as an output
 
   // open serial connection for debug info
   Serial.begin(115200);
   delay(100);
 
   //print the script being executed
-  Serial.println("Running script: MoistureTest");
+  Serial.println("Running script: PlantMon");
 
   // start DHT sensor
   pinMode(DHTPin, INPUT);
@@ -191,10 +196,18 @@ void updateReadings(){
   String warning = checkValuesAreGood();
   
   if (warning.length() > 0 ) {
+    alertLocalDevice();
     client.publish((plantTopic + healthTopic).c_str(), warning.c_str());
     client.publish((plantTopic + healthTimeTopic).c_str(), UTC.dateTime("ymd His.v").c_str());
   }
 
+}
+
+//alert someone locally with sound and LED
+void alertLocalDevice(){
+  tone(buzzer, 25); // Send 25KHz sounds like a bird!!
+  delay(150);        
+  noTone(buzzer);     // Stop buzzer
 }
 
 String checkValuesAreGood(){
