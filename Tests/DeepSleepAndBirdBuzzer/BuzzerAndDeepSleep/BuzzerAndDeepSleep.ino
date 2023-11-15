@@ -3,6 +3,8 @@
 const int buzzer = 14; //buzzer pin
 
 void setup(){
+  Serial.begin(115200);
+  delay(100);
   pinMode(buzzer, OUTPUT); // Set buzzer - pin 9 as an output
 }
 
