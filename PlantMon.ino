@@ -89,13 +89,19 @@ const char* password_bu = SECRET_PASS_BU;
 const char* mqttuser = SECRET_MQTTUSER;
 const char* mqttpass = SECRET_MQTTPASS;
 const char* cypher = SECRET_CYPHER;
-
+bool local_notifications = LOCAL_NOTIFICATIONS; //toggle device notifications on/of
 //MQTT Topic Config 
 const char* topicBase = TOPIC_BASE; //this is the main/higher part of topics that will be  the same for all subscriptions
 const char* roomId = ROOM_ID; //CE Lab
 const char* plantId = PLANT_ID; //ID of individual plant
 const char* healthTopic = HEALTH_TOPIC_ID;
 const char* healthTimeTopic = HEALTH_TIME_TOPIC_ID;
+const char* subscription_topic = SUB_TOPIC;
+
+bool stopTemp = false;
+bool stopHum = false;
+bool stopMoist = false;
+
 //Making code more config driven so changes only need to be made to the associated config file and not the main code
 String plantTopic = String(topicBase) + roomId + plantId;
 
@@ -163,6 +169,14 @@ void setup() {
 }
 
 void loop() {
+  
+  //check MQTT is connected
+  connectMQTT();
+  //give mqtt some time to establish connection after sleep
+  for (int i = 1; i <= 3; ++i) {
+    delay(2000); // *** use 10 secs to stay connected
+    client.loop();
+  }
 
   // handler for receiving requests to webserver
   server.handleClient();
@@ -170,7 +184,6 @@ void loop() {
   //get current readings
   updateReadings();
 
-  sendMQTT();
   Serial.println(GB.dateTime("H:i:s")); // UTC.dateTime("l, d-M-y H:i:s.v T")
   
   //sleep for 100 secs
@@ -178,24 +191,37 @@ void loop() {
   //ESP.deepSleep(6e7); //60 seconds
   //using loop to keep MQTT session alive to receive topic data
   //try with deep sleep and staying awake for n secs to receieve messages.
-  for (int i = 1; i <= 3; ++i) {
-    delay(10000);
-    client.loop();
-  }
-
+  //ESP.deepSleep(6e7); //60 seconds
+  //ESP.deepSleep(4e7); //40 seconds
+  ESP.deepSleep(3.6e8); //5 mins
+  
+  //delay(10);
+  
+  
 }
 
 void updateReadings(){
   //get soil moisture first as this takes the longest time to perform
-  readMoisture();
-  Temperature = dht.readTemperature(); // Gets the values of the temperature
-  Humidity = dht.readHumidity(); // Gets the values of the humidity
+  if (!stopMoist){
+    readMoisture();
+  }
+  if (!stopTemp){
+    Temperature = dht.readTemperature(); // Gets the values of the temperature
+  }
+  if (!stopMoist){
+    Humidity = dht.readHumidity(); // Gets the values of the humidity
+  }
+
+  sendMQTT();
 
   //check all values are in acceptable ranges
   String warning = checkValuesAreGood();
   
   if (warning.length() > 0 ) {
-    alertLocalDevice();
+    //produce physical alerts if setting is true
+    if (local_notifications) {
+      alertLocalDevice();
+    }
     client.publish((plantTopic + healthTopic).c_str(), warning.c_str());
     client.publish((plantTopic + healthTimeTopic).c_str(), UTC.dateTime("ymd His.v").c_str());
   }
@@ -209,19 +235,21 @@ void alertLocalDevice(){
   noTone(buzzer);     // Stop buzzer
 }
 
+//if monitoring is on for a sensor, check values are good
 String checkValuesAreGood(){
   String result = "";
-  if (Moisture < danger_moist_low ) {
+
+  if (!stopMoist && Moisture < danger_moist_low ) {
     result += "Moist Low (";
     result += Moisture;
     result += ") ";
   } 
-  if (Moisture > danger_moist_high ) {
+  if (!stopMoist && Moisture > danger_moist_high ) {
     result += "Moist High (";
     result += Moisture;
     result += ") ";
   }
-  if (Temperature < danger_temp_low ) {
+  if (!stopTemp && Temperature < danger_temp_low ) {
     result += "Temp Low (";
     result += Temperature;
     result += ") ";
@@ -244,7 +272,7 @@ String checkValuesAreGood(){
   return result;
 }
 
-
+//get moist reading the soil sensor
 void readMoisture(){
   int soilReading = -1;
   int mappedSoilReading = -1;
@@ -311,6 +339,7 @@ void connectToWiFi(){
   }
 }
 
+//get current time
 void syncDate() {
   // get real date and time
   waitForSync();
@@ -319,6 +348,7 @@ void syncDate() {
   Serial.println("London time: " + GB.dateTime());
 }
 
+//start the oboard webserver
 void startWebserver() {
   // when connected and IP address obtained start HTTP server
   server.on("/", handle_OnConnect);
@@ -327,39 +357,56 @@ void startWebserver() {
   Serial.println("HTTP server started");
 }
 
-void sendMQTT() {
-
+//connect to data broker
+void connectMQTT(){
   if (!client.connected()) {
     reconnect();
   }
+}
+
+//publish any new data to mqtt
+void sendMQTT() {
+
+  connectMQTT();
+
   client.loop();
 
- 
-  snprintf (msg, 50, "%.1f", Temperature);
-  Serial.print("Publish message for temperature: ");
-  Serial.println(msg);
-  //client.publish("student/CASA0014/plant/ucfnamm/temperature", msg);
-  client.publish((plantTopic + "temperature").c_str(), msg);
+  // If sensor is not disabled, get new value and send to mqtt
+  if (!stopTemp){
+    snprintf (msg, 50, "%.1f", Temperature);
+    Serial.print("Publish message for temperature: ");
+    Serial.println(msg);
+    Serial.println((plantTopic + "temperature").c_str());
+    //client.publish("student/CASA0014/plant/ucfnamm/temperature", msg);
+    client.publish((plantTopic + "temperature").c_str(), msg);
+   }
 
+// If sensor is not disabled, get new value and send to mqtt
+  if (!stopHum){
+    snprintf (msg, 50, "%.0f", Humidity);
+    Serial.print("Publish message for humidity: ");
+    Serial.println(msg);
+    //client.publish("student/CASA0014/plant/ucfnamm/humidity", msg);
+    client.publish((plantTopic + "humidity").c_str(), msg);
+  }
 
-  snprintf (msg, 50, "%.0f", Humidity);
-  Serial.print("Publish message for humidity: ");
-  Serial.println(msg);
-  //client.publish("student/CASA0014/plant/ucfnamm/humidity", msg);
-  client.publish((plantTopic + "humidity").c_str(), msg);
+  // If sensor is not disabled, get new value and send to mqtt
+  if (!stopMoist) {
+    snprintf (msg, 50, "%.0i", Moisture);
+    Serial.print("Publish message for moisture: ");
+    Serial.println(msg);
+    //client.publish("student/CASA0014/plant/ucfnamm/moisture", msg);
+    client.publish((plantTopic + "moisture").c_str(), msg);
+  }
 
-  //Moisture = analogRead(soilPin);   // moisture read by readMoisture function
-  snprintf (msg, 50, "%.0i", Moisture);
-  Serial.print("Publish message for moisture: ");
-  Serial.println(msg);
-  //client.publish("student/CASA0014/plant/ucfnamm/moisture", msg);
-  client.publish((plantTopic + "moisture").c_str(), msg);
+  // If any sensor is not disabled,send to mqtt
+  if (!stopMoist || !stopTemp || !stopHum ){
+    String sendTime = UTC.dateTime("ymd His.v");
+    client.publish((plantTopic + "time").c_str(), sendTime.c_str());
+    client.publish((plantTopic + "check").c_str(), codeString(sendTime).c_str());
 
-  String sendTime = UTC.dateTime("ymd His.v");
-  client.publish((plantTopic + "time").c_str(), sendTime.c_str());
-  client.publish((plantTopic + "check").c_str(), codeString(sendTime).c_str());
-
-  Serial.println(sendTime);
+    Serial.println(sendTime);
+  }
 }
 //#######################################################################################################F
 //## CHANGE CIPHER LOGIC TO ADD ALL READINGS AND TIME AND CREATE THE CHECK CHAR
@@ -385,6 +432,43 @@ void callback(char* topic, byte* payload, unsigned int length) {
   }
   Serial.println();
 
+  //remotely switch on and off the sensors/readings and physical alerts
+  if (strcmp(topic, "student/CASA0014/plant/ucfnamm/1PL/F1/CEL/RHS5MF/stoptemp/") == 0) {
+      if ((char)payload[0] == '1'){
+        Serial.println("Stopping temp");
+        stopTemp = true;
+      } else{
+        Serial.println("Starting temp");
+        stopTemp = false;
+      }
+   } else if (strcmp(topic, "student/CASA0014/plant/ucfnamm/1PL/F1/CEL/RHS5MF/stophumidity/") == 0) {
+      if ((char)payload[0] == '1'){
+        Serial.println("Stopping humidity");
+        stopHum = true;
+      } else{
+        Serial.println("Starting humidity");
+        stopHum = false;
+      }
+   } else if (strcmp(topic, "student/CASA0014/plant/ucfnamm/1PL/F1/CEL/RHS5MF/stopmoist/") == 0) {
+      if ((char)payload[0] == '1'){
+        Serial.println("Stopping moisture");
+        stopMoist = true;
+      } else{
+        Serial.println("Starting moisture");
+        stopMoist = false;
+      }
+   }
+  
+  if (strcmp(topic, "student/CASA0014/plant/ucfnamm/1PL/F1/CEL/RHS5MF/stopDeviceAlerts/") == 0) {
+      if ((char)payload[0] == '1'){
+        Serial.println("Stopping device alerts");
+        local_notifications = false;
+      } else{
+        Serial.println("Starting temp");
+        local_notifications = true;
+      }
+  }
+
   // Switch on the LED if an 1 was received as first character
   if ((char)payload[0] == '1') {
     digitalWrite(BUILTIN_LED, LOW);   // Turn the LED on (Note that LOW is the voltage level
@@ -407,7 +491,7 @@ void reconnect() {
     if (client.connect(clientId.c_str(), mqttuser, mqttpass)) {
       Serial.println("connected");
       // ... and resubscribe
-      client.subscribe("student/CASA0014/plant/ucfnamm/#");
+      client.subscribe(subscription_topic);
     } else {
       Serial.print("failed, rc=");
       Serial.print(client.state());
