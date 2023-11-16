@@ -67,4 +67,5 @@ client.connect("mqtt.cetools.org", 1884, 60)  # Replace "broker_address" with th
 # Start the MQTT client loop (this is a non-blocking loop that handles communication)
 client.loop_forever()
 
+#
 
