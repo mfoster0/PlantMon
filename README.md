@@ -18,7 +18,7 @@ For the soil sensor, an analogue measurement is used. Pin 13 is used as VCC to s
 Some further additions were made to allow in person/physical monitoring of the device. An active buzzer and LED we connected to D14 and ground. No resistor was required for the LED here due to the connection to the active buzzer.
 To make use of the board’s sleep modes, a connection was made between the RST and Pin 16.
 ### RST to Pin16
-<img src="./img/ RST_to_PIN16.jpg" alt="Image showing connection between RST and pin 16" title="Low Power Connection">
+<img src="./img/RST_to_PIN16.jpg" alt="Image showing connection between RST and pin 16" title="Low Power Connection">
 
 
 For the device, power was supplied via a rechargeable 3.7V batter which connects to via the JST jack. 
@@ -26,7 +26,7 @@ For the device, power was supplied via a rechargeable 3.7V batter which connects
 <img src="./img/JSTConnection.jpg" alt="Image of incorrect wiring on a JST connector" title="JST Wires Wrong Way Around">
 
 ### Breadboard Prototype
-<img src="./img/ BreadboardProto.jpg" alt="Image of a reworked prototype" title="Breadboard mock-up">
+<img src="./img/BreadboardProto.jpg" alt="Image of a reworked prototype" title="Breadboard mock-up">
 
 A physical latching switch for powering down the device was added to the power supply lead to enable switched the device on and off.
 ### Overview of flow and controls
