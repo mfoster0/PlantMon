@@ -345,9 +345,9 @@ void sendMQTT() {
     snprintf (msg, 50, "%.1f", Temperature);
     Serial.print("Publish message for temperature: ");
     Serial.println(msg);
-    Serial.println((plantTopic + "temperature").c_str());
+    Serial.println((plantTopic + "temperature/").c_str());
     //client.publish("student/CASA0014/plant/ucfnamm/temperature", msg);
-    client.publish((plantTopic + "temperature").c_str(), msg);
+    client.publish((plantTopic + "temperature/").c_str(), msg);
    }
 
 // If sensor is not disabled, get new value and send to mqtt
@@ -356,7 +356,7 @@ void sendMQTT() {
     Serial.print("Publish message for humidity: ");
     Serial.println(msg);
     //client.publish("student/CASA0014/plant/ucfnamm/humidity", msg);
-    client.publish((plantTopic + "humidity").c_str(), msg);
+    client.publish((plantTopic + "humidity/").c_str(), msg);
   }
 
   // If sensor is not disabled, get new value and send to mqtt
@@ -364,14 +364,14 @@ void sendMQTT() {
     snprintf (msg, 50, "%.0i", Moisture);
     Serial.print("Publish message for moisture: ");
     Serial.println(msg);
-    client.publish((plantTopic + "moisture").c_str(), msg);
+    client.publish((plantTopic + "moisture/").c_str(), msg);
   }
 
   // If any sensor is not disabled,send to mqtt
   if (!stopMoist || !stopTemp || !stopHum ){
     String sendTime = UTC.dateTime("ymd His.v");
-    client.publish((plantTopic + "time").c_str(), sendTime.c_str());
-    client.publish((plantTopic + "check").c_str(), codeString(sendTime).c_str());
+    client.publish((plantTopic + "tim/e").c_str(), sendTime.c_str());
+    client.publish((plantTopic + "check/").c_str(), codeString(sendTime).c_str());
 
     Serial.println(sendTime);
   }
