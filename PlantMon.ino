@@ -163,27 +163,26 @@ void setup() {
 }
 
 void loop() {
-  // put your main code here, to run repeatedly:
+
   // handler for receiving requests to webserver
   server.handleClient();
 
-
-//for testing 1 minute is too long, switching to a delay approach
-/*
-  if (minuteChanged()) {
-    readMoisture();
-    sendMQTT();
-    Serial.println(GB.dateTime("H:i:s")); // UTC.dateTime("l, d-M-y H:i:s.v T")
-  }
-*/
   //get current readings
   updateReadings();
 
   sendMQTT();
   Serial.println(GB.dateTime("H:i:s")); // UTC.dateTime("l, d-M-y H:i:s.v T")
-  delay(10000);
+  
+  //sleep for 100 secs
+  //wifi connection will be dropped so only use when sleeping for a longer period
+  //ESP.deepSleep(6e7); //60 seconds
+  //using loop to keep MQTT session alive to receive topic data
+  //try with deep sleep and staying awake for n secs to receieve messages.
+  for (int i = 1; i <= 3; ++i) {
+    delay(10000);
+    client.loop();
+  }
 
-  client.loop();
 }
 
 void updateReadings(){
@@ -249,62 +248,27 @@ String checkValuesAreGood(){
 void readMoisture(){
   int soilReading = -1;
   int mappedSoilReading = -1;
+  
   // power the sensor
   digitalWrite(sensorVCC, HIGH);
-  digitalWrite(blueLED, LOW);
+  digitalWrite(blueLED, LOW); //also used as a check to see the device is active
   delay(100);
-  // read the value from the sensor:         
-  // Mapped the range of the min and max values taken to 0-10. 
-  //This intentionally removes much of the granularity of the reading due to this sensor have multiple factors that can influence its performance  
-  //soilReading = analogRead(soilPin);
   
   Moisture = analogRead(soilPin);
 
   Serial.print("Soil: ");
   Serial.println(Moisture);
-  
-  //map to small range due to such inprecise readings. min value
-  //min observed value: 8, max: 1024 ==> Min: 0, Max:10     
-  //mappedSoilReading = mapVal(soilReading, 0,1025, 0, 10);  
-/*  Moisture = map(soilReading, 0,1025, 1, 10); 
-  Serial.print("Mapped Soil: ");
-  Serial.println(Moisture);
-*/
+
   //Moisture = analogRead(soilPin);
   //stop power
   digitalWrite(sensorVCC, LOW);  
   digitalWrite(blueLED, HIGH);
-  delay(100);
  
   ////Serial.println(soilReading);   // read the value from the nails
 
 }
 
-int mapVal(int x, int in_min, int in_max, int out_min, int out_max) {
-  Serial.println("mapVal in: ");
-  Serial.println(x);
-  return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
-}
-/*
-void startWifi() {
-  // We start by connecting to a WiFi network
-  Serial.println();
-  Serial.print("Connecting to ");
-  Serial.println(ssid);
-  WiFi.begin(ssid, password);
-
-  // check to see if connected and wait until you are
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print("."); //show reattempt progress
-  }
-  Serial.println("");
-  Serial.println("WiFi connected");
-  Serial.print("IP address: ");
-  Serial.println(WiFi.localIP());
-}
-*/
-
+//connection code to try backup if not found
 void connectToWiFi(){
   bool usingBU = false;
   const char* usingSSID = ssid;
@@ -397,8 +361,7 @@ void sendMQTT() {
 
   Serial.println(sendTime);
 }
-//#######################################################################################################
-//##
+//#######################################################################################################F
 //## CHANGE CIPHER LOGIC TO ADD ALL READINGS AND TIME AND CREATE THE CHECK CHAR
 //#######################################################################################################
 //########################################################
