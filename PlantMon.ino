@@ -14,38 +14,6 @@ Arduino published messages are sent to the mqtt server and topics defined in the
 Connection logins are stored in the ./hidden/arduino_secrets.h file
 Remote control of the device is performed through mqtt and the webpage
 
-TODO:
-
-Debug soil sensor readings - the soil moisture script is working
-Add error handlers
-Warnings / errors - publish to mqtt
-Add checksum - use simple cipher so that consumers of data know this is genuine
-Add tamper checks - look at ways to analyse readings to identify potential tamper events
-Enable the remote control for switching device on/off:
-  - via webpage
-  - via mqtt
-  - add on/off for each function
-Use LED's for physical monitoring and heartbeat
-Add sound alert to support non-visual alert
-Set up active remote monitoring
-Automatically attempt to connect to back up WiFi connection if primary fails
-Move from delay to millis
-Update pulse logic to show a less frequent heartbeat
-- Debug soil sensor readings - the soil moisture script is working
-- Add error handlers
-- Warnings / errors - publish to mqtt
-- Add checksum - use simple cipher so that consumers of data know this is genuine
-- Add tamper checks - look at ways to analyse readings to identify potential tamper events
-- Enable the remote control for switching device on/off:
-  -- via webpage
-  -- via mqtt
-  -- add on/off for each function
-- Use LED's for physical monitoring and heartbeat
-- Add sound alert to support non-visual alert
-- Set up active remote monitoring
-- Automatically attempt to connect to back up WiFi connection if primary fails
-- Move from delay to millis
-- Update pulse logic to show a less frequent heartbeat
 
 Webpage:
   Add colour highlighting for values out of accepted ranges
@@ -160,7 +128,8 @@ void setup() {
 
   // run initialisation functions
   connectToWiFi();
-  startWebserver();
+  //currently disabled
+  //startWebserver(); 
   syncDate();
 
   // start MQTT server
@@ -395,7 +364,6 @@ void sendMQTT() {
     snprintf (msg, 50, "%.0i", Moisture);
     Serial.print("Publish message for moisture: ");
     Serial.println(msg);
-    //client.publish("student/CASA0014/plant/ucfnamm/moisture", msg);
     client.publish((plantTopic + "moisture").c_str(), msg);
   }
 
@@ -548,17 +516,4 @@ String SendHTML(float Temperaturestat, float Humiditystat, int Moisturestat) {
   return ptr;
 }
 
-/*
-void publishToRC(){
-  snprintf (msg, 50, "#%ld", value);
-  Serial.print("Publish message: ");
-  Serial.println(msg);
-  Serial.println(plantTopic.c_str());
-  
-  //###############################
-  //publish to mqtt
-  //client.publish(statusTopic.c_str(),msg);
-  //client.publish(plantTopic.c_str(),msg);
-  client.publish((plantTopic + remoteControl).c_str(),msg);
-}
-*/
+
