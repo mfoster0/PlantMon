@@ -29,8 +29,13 @@ For the device, power was supplied via a rechargeable 3.7V batter which connects
 <img src="./img/BreadboardProto.jpg" alt="Image of a reworked prototype" title="Breadboard mock-up">
 
 A physical latching switch for powering down the device was added to the power supply lead to enable switched the device on and off.
+
 ### Overview of flow and controls
 <img src="./img/PMDataFlows.jpg" alt="Diagram of high level data flows and controls" title="System Data Flows">
+
+### The Enclosure
+To make the device compact and resuse one of the salvaged vape casee that the Li-Ion batteries came from, a enclosure was made from some upcycling
+<img src="./img/Enclosure.jpg" alt="An image of the enclosure of the device" title="Device Enclosure">
 
 ## The Code
 The device communicates its readings through WiFi so a connection is made through a known and preconfigured network. Credentials stored in a config file. The code is set up to automatically try a back up if the primary network is not available. A smarter method for future iterations would be to hold a list of connections that could be cycled through. 
